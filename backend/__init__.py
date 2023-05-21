@@ -21,6 +21,9 @@ def create_app():
     from .main import main as main_blueprint
     app.register_blueprint(main_blueprint)
 
+    from .test import test as test_blueprint
+    app.register_blueprint(test_blueprint)
+
     return app
 
 

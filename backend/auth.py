@@ -93,6 +93,9 @@ def getRefreshToken():
 def signup():
     return redirect(url_for('auth.signup'))
 
+
+
+
 @auth.route('/user', methods=['GET'])
 @token_required
 def get_user():
