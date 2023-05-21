@@ -1,6 +1,6 @@
 import jwt
 import datetime
-from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash
+from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from .models import User, SQL_Writer
 from flask_cors import CORS
@@ -17,6 +17,39 @@ logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s %(levelname)s %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S")
 
+
+def token_required(f):
+    @wraps(f)
+    def _verify(*args, **kwargs):
+        auth_headers = request.headers.get('Authorization', '').split()
+
+        invalid_msg = {
+            'message': 'Invalid token. Registeration and / or authentication required',
+            'authenticated': False
+        }
+        expired_msg = {
+            'message': 'Expired token. Reauthentication required.',
+            'authenticated': False
+        }
+
+        if len(auth_headers) != 2:
+            return jsonify(invalid_msg), 401
+
+        try:
+            token = auth_headers[1]
+            data = jwt.decode(token, current_app.config['SECRET_KEY'])
+            user = User.query.filter_by(email=data['sub']).first()
+            if not user:
+                raise RuntimeError('User not found')
+            return f(user, *args, **kwargs)
+        except jwt.ExpiredSignatureError:
+            return jsonify(expired_msg), 401 # 401 is Unauthorized HTTP status code
+        except (jwt.InvalidTokenError, Exception) as e:
+            print(e)
+            return jsonify(invalid_msg), 401
+
+    return _verify
+
 @auth.after_request
 def after_request(response):
     # add some information to the header
@@ -27,12 +60,11 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
-@auth.route('/login', methods=['POST'])
+@auth.route('/auth/signin', methods=['POST',])
 def login():
-    logging.debug(f'data: {request}')
-    logging.debug(f'data: {request.form}')
-    username = request.form.get('username')
-    password = request.form.get('password')
+    logging.debug(f'data: {request.get_json()}')
+    username = request.get_json().get('username')
+    password = request.get_json().get('password')
     password += salt
 
     user = User.query.filter_by(email=username).first() # if this returns a user, then the email already exists in database
@@ -42,24 +74,29 @@ def login():
     logging.debug(f'is available: user: {username} pass: {password}')
     # authenticate user
     authenticated = authenticate(username, password)
-
+    logging.debug(f'authenticated: {authenticated} ')
     if authenticated:
         # log user in
-        log_in()
-        token = jwt.encode({'user' : username, 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, username + salt)
-        response = jsonify({'token': token, 'user' : username, 'message': 'login successful'})
+        accessToken = jwt.encode({'user' : username, 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, username + salt)
+        response = jsonify({'accessToken': accessToken, 'user' : username, 'message': 'login successful'})
         return response
     else:
         response = jsonify({'error': 'invalid username or password'}), 401
         return response
+
+@auth.route('/refreshToken', methods=['POST'])
+def getRefreshToken():
+    logging.debug(f'refresh data: {request}')
+    return
 
 @auth.route('/signup')
 def signup():
     return redirect(url_for('auth.signup'))
 
 @auth.route('/user', methods=['GET'])
+@token_required
 def get_user():
-    logging.debug(f'data: {request}')
+    logging.debug(f'get_user data: {request}')
     username = request.form.get('username')
     logging.debug(f'user: {username}')
     token = jwt.encode({'user' : 'test', 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, 'test' + salt)
@@ -93,31 +130,21 @@ def signup_post():
     response = jsonify({'message': 'signup successful'})
     return response
 
-@auth.route('/logout')
 def authenticate(username, password):
     # login code goes here
-    username = request.form.get('username')
-    password = request.form.get('password')
+    username = username
+    password = password
     remember = True if request.form.get('remember') else False
 
     user = User.query.filter_by(email=username).first()
-
+    logging.debug(f'user: {user} pass: {password}')
     # check if the user actually exists
     # take the user-supplied password, hash it, and compare it to the hashed password in the database
     if not user or not check_password_hash(user.password, password):
         flash('Please check your login details and try again.')
-        return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
-
+        # return redirect(url_for('auth.login')) # if the user doesn't exist or password is wrong, reload the page
+        return False
     # if the above check passes, then we know the user has the right credentials
-    return redirect(url_for('main.profile'))
-
-@auth.route('/login')
-def log_in():
-    # log user in by setting session or other method
-    pass
-
-@auth.route('/logout')
-def log_out(username):
-    # log user in by setting session or other method
-    pass
+    # return redirect(url_for('main.profile'))
+    return True
 
