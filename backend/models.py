@@ -7,15 +7,9 @@ import pandas as pd
 from enum import Enum
 
 class TABLENAMES(Enum):
-    # mit TABLENAMES.QR_CODE.name -> 'QR_CODE'
-    # mit TABLENAMES.QR_CODE.value -> 'QR_code'
     EMAIL              = 'email'
     PASSWORD              = 'password'
 
-# class User(db.Model):
-#     id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy
-#     email = db.Column(db.String(100), unique=True)
-#     password = db.Column(db.String(100))
 
 class User(db.Model):
     __tablename__='User'
@@ -75,12 +69,6 @@ class SQL_Writer():
 
 
     def create_connection_pymysql(self):
-        # connection = pymysql.connect(host='localhost',    # change host-ip if needed
-        #                              port=3310,           # change port if needed
-        #                              user='dummy_insert',
-        #                              password='1234',
-        #                              db='RheinBerg_QRCode')
-
         connection = pymysql.connect(host='127.0.0.1',    # change host-ip if needed
                                      port=9556,           # change port if needed
                                      user='UserWriterReader',
