@@ -38,17 +38,18 @@ def token_required(f):
         try:
             token = auth_headers[1]
             data = jwt.decode(token, current_app.config['SECRET_KEY'])
-            user = User.query.filter_by(email=data['sub']).first()
+            user = User.query.filter_by(email=data['user']).first()
             if not user:
                 raise RuntimeError('User not found')
             return f(user, *args, **kwargs)
         except jwt.ExpiredSignatureError:
-            return jsonify(expired_msg), 401 # 401 is Unauthorized HTTP status code
+            return jsonify(expired_msg), 401  # 401 is Unauthorized HTTP status code
         except (jwt.InvalidTokenError, Exception) as e:
             print(e)
             return jsonify(invalid_msg), 401
 
     return _verify
+
 
 @auth.after_request
 def after_request(response):
@@ -60,16 +61,18 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
-@auth.route('/auth/signin', methods=['POST',])
+
+@auth.route('/auth/signin', methods=['POST', ])
 def login():
     logging.debug(f'data: {request.get_json()}')
     username = request.get_json().get('username')
     password = request.get_json().get('password')
     password += salt
 
-    user = User.query.filter_by(email=username).first() # if this returns a user, then the email already exists in database
+    user = User.query.filter_by(
+        email=username).first()  # if this returns a user, then the email already exists in database
     logging.debug(user)
-    if not user: # if a user is not found, we want to redirect back to signin page so user can try again
+    if not user:  # if a user is not found, we want to redirect back to signin page so user can try again
         return redirect(url_for('auth.signin'))
     logging.debug(f'is available: user: {username} pass: {password}')
     # authenticate user
@@ -77,23 +80,51 @@ def login():
     logging.debug(f'authenticated: {authenticated} ')
     if authenticated:
         # log user in
-        accessToken = jwt.encode({'user' : username, 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, username + salt)
-        response = jsonify({'accessToken': accessToken, 'user' : username, 'message': 'login successful'})
+        accessToken = jwt.encode(
+            {'user': username, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_ACCESS_TOKEN_EXPIRES']},
+            key=current_app.config['SECRET_KEY'])
+        response = jsonify({'accessToken': accessToken, 'user': username, 'message': 'login successful'})
         return response
     else:
         response = jsonify({'error': 'invalid username or password'}), 401
         return response
 
-@auth.route('/refreshToken', methods=['POST'])
+
+@auth.route('/auth/refreshtoken', methods=['POST'])
 def getRefreshToken():
-    logging.debug(f'refresh data: {request}')
-    return
+    logging.debug(f'refresh data1: {request}')
+    logging.debug(f'refresh data: {request.get_json()}')
+
+    auth_headers = request.headers.get('Authorization', '').split()
+    logging.debug(f'data:{auth_headers}')
+
+    user_message = {
+        'message': 'User not found.',
+        'authenticated': False
+    }
+
+    try:
+        token = auth_headers[1]
+        logging.debug(f'token: {token}')
+        data = jwt.decode(token, algorithms="HS256", key=current_app.config['SECRET_KEY'])
+        logging.debug(f'decode: {data}')
+        user = User.query.filter_by(email=data['user']).first()
+        if not user:
+            raise RuntimeError('User not found')
+    except (jwt.ExpiredSignatureError, Exception) as e:
+        logging.debug(f'ExpiredSignatureError:{e}')
+        return jsonify(user_message), 401 # 401 is Unauthorized HTTP status code
+    except (jwt.InvalidTokenError, Exception) as e:
+        logging.debug(f'InvalidTokenError:{e}')
+        return jsonify(user_message), 401
+
+
+
+
 
 @auth.route('/signup')
 def signup():
     return redirect(url_for('auth.signup'))
-
-
 
 
 @auth.route('/user', methods=['GET'])
@@ -102,10 +133,12 @@ def get_user():
     logging.debug(f'get_user data: {request}')
     username = request.form.get('username')
     logging.debug(f'user: {username}')
-    token = jwt.encode({'user' : 'test', 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, 'test' + salt)
+    token = jwt.encode({'user': 'test', 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
+                       'test' + salt)
     logging.debug(f'token: {token}')
-    response = jsonify({'token': token, 'user' : username, 'message': 'login successful'})
+    response = jsonify({'token': token, 'user': username, 'message': 'login successful'})
     return response
+
 
 @auth.route('/signup', methods=['POST'])
 def signup_post():
@@ -117,9 +150,10 @@ def signup_post():
     password += salt
     logging.debug(f'user: {username} pass: {password}')
     db_sql.testConnection()
-    user = User.query.filter_by(email=username).first() # if this returns a user, then the email already exists in database
+    user = User.query.filter_by(
+        email=username).first()  # if this returns a user, then the email already exists in database
     logging.debug(user)
-    if user: # if a user is found, we want to redirect back to signup page so user can try again
+    if user:  # if a user is found, we want to redirect back to signup page so user can try again
         return redirect(url_for('auth.signup'))
 
     # create a new user with the form data. Hash the password so the plaintext version isn't saved.
@@ -132,6 +166,7 @@ def signup_post():
     # return redirect(location=url_for('auth.login'))
     response = jsonify({'message': 'signup successful'})
     return response
+
 
 def authenticate(username, password):
     # login code goes here
@@ -150,4 +185,3 @@ def authenticate(username, password):
     # if the above check passes, then we know the user has the right credentials
     # return redirect(url_for('main.profile'))
     return True
-
