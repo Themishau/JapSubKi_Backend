@@ -12,7 +12,9 @@ from functools import wraps
 
 test = Blueprint('test', __name__)
 db_sql = SQL_Writer()
+
 salt = '5aP3v*4!1bN<x4i&3'
+
 logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s %(levelname)s %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S")
@@ -22,46 +24,64 @@ def after_request(response):
     # add some information to the header
     # we are going to do some credentials here
     response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,username')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
-@test.route('/test/all', methods=['GET', 'POST', 'PUT'])
-def signup_all():
-    auth_headers = request.headers.get('Authorization', '').split()
-    logging.debug(f'data:{auth_headers}')
-    user_message = {
-        'message': 'User not found.',
-        'authenticated': False
-    }
-    user_message = {
-        'message': 'User found.',
-        'authenticated': True
-    }
-    try:
-        token = auth_headers[1]
-        logging.debug(f'token: {token}')
-        data = jwt.decode(token, algorithms="HS256", key=current_app.config['SECRET_KEY'])
-        logging.debug(f'decode: {data}')
-        user = User.query.filter_by(email=data['user']).first()
-        if not user:
-            raise RuntimeError('User not found')
-    except (jwt.ExpiredSignatureError, Exception) as e:
-        logging.debug(f'ExpiredSignatureError:{e}')
-        return jsonify(user_message), 401 # 401 is Unauthorized HTTP status code
-    except (jwt.InvalidTokenError, Exception) as e:
-        logging.debug(f'InvalidTokenError:{e}')
-        return jsonify(user_message), 401
+
+def token_required(f):
+    @wraps(f)
+    def _verify(*args, **kwargs):
+        auth_headers = request.headers.get('Authorization', '').split()
+
+        invalid_msg = {
+            'message': 'Invalid token. Registeration and / or authentication required',
+            'authenticated': False
+        }
+        expired_msg = {
+            'message': 'Expired token. Reauthentication required.',
+            'authenticated': False
+        }
+
+        if len(auth_headers) != 2:
+            return jsonify(invalid_msg), 401
+
+        try:
+            token = auth_headers[1]
+            data = jwt.decode(token, algorithms="HS256", key=current_app.config['SECRET_KEY'])
+            user = User.query.filter_by(email=data['user']).first()
+            if not user:
+                raise RuntimeError('User not found')
+            return f(user, *args, **kwargs)
+        except jwt.ExpiredSignatureError:
+            return jsonify(expired_msg), 401  # 401 is Unauthorized HTTP status code
+        except (jwt.InvalidTokenError, Exception) as e:
+            print(e)
+            return jsonify(invalid_msg), 401
+
+    return _verify
+@test.route('/test/<username>', methods=['GET', 'POST', 'PUT'])
+@token_required
+def signup_all(username):
     res = make_response("Successful", 200)
     res.set_cookie(
         "JWT",
-        value=token,
-        expires=data['exp'],
+        value="",
+        expires="",
         httponly=True,
         samesite="Strict")
     return res
 
-@test.route('/test/alluser', methods=['GET', 'POST', 'PUT'])
+
+@test.route('/test/all', methods=['GET', 'POST', 'PUT'])
 def signup_alluser():
-    logging.debug(f'data: {request.get_json()}')
-    return ""
+    auth_headers = request.headers.get('Authorization', '').split()
+    logging.debug(f'all data:{auth_headers}')
+    res = make_response("Successful", 200)
+    res.set_cookie(
+        "JWT",
+        value="",
+        expires="",
+        httponly=True,
+        samesite="Strict")
+    return res

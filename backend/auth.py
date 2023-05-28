@@ -37,7 +37,7 @@ def token_required(f):
 
         try:
             token = auth_headers[1]
-            data = jwt.decode(token, current_app.config['SECRET_KEY'])
+            data = jwt.decode(token, algorithms="HS256", key=current_app.config['SECRET_KEY'])
             user = User.query.filter_by(email=data['user']).first()
             if not user:
                 raise RuntimeError('User not found')
@@ -83,7 +83,10 @@ def login():
         accessToken = jwt.encode(
             {'user': username, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_ACCESS_TOKEN_EXPIRES']},
             key=current_app.config['SECRET_KEY'])
-        response = jsonify({'accessToken': accessToken, 'user': username, 'message': 'login successful'})
+        refreshToken = jwt.encode(
+            {'user': username, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_REFRESH_TOKEN_EXPIRES']},
+            key=current_app.config['SECRET_KEY'])
+        response = jsonify({'accessToken': accessToken, 'refreshToken': refreshToken, 'user': username, 'message': 'login successful'})
         return response
     else:
         response = jsonify({'error': 'invalid username or password'}), 401
@@ -111,12 +114,20 @@ def getRefreshToken():
         user = User.query.filter_by(email=data['user']).first()
         if not user:
             raise RuntimeError('User not found')
+        accessToken = jwt.encode(
+            {'user': user, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_ACCESS_TOKEN_EXPIRES']},
+            key=current_app.config['SECRET_KEY'])
+        refreshToken = jwt.encode(
+            {'user': user, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_REFRESH_TOKEN_EXPIRES']},
+            key=current_app.config['SECRET_KEY'])
+        response = jsonify({'accessToken': accessToken, 'refreshToken': refreshToken, 'user': user, 'message': 'login successful'})
+        return response
     except (jwt.ExpiredSignatureError, Exception) as e:
         logging.debug(f'ExpiredSignatureError:{e}')
-        return jsonify(user_message), 401 # 401 is Unauthorized HTTP status code
+        return jsonify(user_message), 403 # 401 is Unauthorized HTTP status code
     except (jwt.InvalidTokenError, Exception) as e:
         logging.debug(f'InvalidTokenError:{e}')
-        return jsonify(user_message), 401
+        return jsonify(user_message), 403
 
 
 
@@ -127,17 +138,17 @@ def signup():
     return redirect(url_for('auth.signup'))
 
 
-@auth.route('/user', methods=['GET'])
-@token_required
-def get_user():
-    logging.debug(f'get_user data: {request}')
-    username = request.form.get('username')
-    logging.debug(f'user: {username}')
-    token = jwt.encode({'user': 'test', 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
-                       'test' + salt)
-    logging.debug(f'token: {token}')
-    response = jsonify({'token': token, 'user': username, 'message': 'login successful'})
-    return response
+# @auth.route('/user', methods=['GET'])
+# @token_required
+# def get_user():
+#     logging.debug(f'get_user data: {request}')
+#     username = request.form.get('username')
+#     logging.debug(f'user: {username}')
+#     token = jwt.encode({'user': 'test', 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
+#                        'test' + salt)
+#     logging.debug(f'token: {token}')
+#     response = jsonify({'token': token, 'user': username, 'message': 'login successful'})
+#     return response
 
 
 @auth.route('/signup', methods=['POST'])
