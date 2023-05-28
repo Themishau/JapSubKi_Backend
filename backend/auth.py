@@ -50,6 +50,10 @@ def token_required(f):
 
     return _verify
 
+@auth.route('/auth/checkUser', methods=['GET', ])
+@token_required
+def checkUser():
+    return jsonify('OK'), 202
 
 @auth.after_request
 def after_request(response):

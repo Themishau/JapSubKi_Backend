@@ -18,6 +18,7 @@ def create_app():
     # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://UserWriterReader:UserTest123@127.0.0.1:9556/UserData'
     db.init_app(app)
+
     # blueprint for auth routes in our app
     from .auth import auth as auth_blueprint
     app.register_blueprint(auth_blueprint)

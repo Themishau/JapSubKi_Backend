@@ -12,9 +12,6 @@ from functools import wraps
 
 test = Blueprint('test', __name__)
 db_sql = SQL_Writer()
-
-salt = '5aP3v*4!1bN<x4i&3'
-
 logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s %(levelname)s %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S")
@@ -60,9 +57,10 @@ def token_required(f):
             return jsonify(invalid_msg), 401
 
     return _verify
-@test.route('/test/<username>', methods=['GET', 'POST', 'PUT'])
+@test.route('/test/', methods=['GET', 'POST', 'PUT'])
 @token_required
-def signup_all(username):
+def signup_all(user):
+    print(user)
     res = make_response("Successful", 200)
     res.set_cookie(
         "JWT",
