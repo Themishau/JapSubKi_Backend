@@ -60,7 +60,6 @@ def token_required(f):
 @test.route('/test/', methods=['GET', 'POST', 'PUT'])
 @token_required
 def signup_all(user):
-    print(user)
     res = make_response("Successful", 200)
     res.set_cookie(
         "JWT",
