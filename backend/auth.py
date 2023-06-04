@@ -50,7 +50,7 @@ def token_required(f):
 
     return _verify
 
-@auth.route('/auth/checkUser', methods=['GET', ])
+@auth.route('/auth/checkUser', methods=['GET', 'POST'])
 @token_required
 def checkUser():
     return jsonify('OK'), 202
@@ -97,9 +97,9 @@ def login():
         return response
 
 
-@auth.route('/auth/refreshtoken', methods=['POST'])
+@auth.route('/auth/refreshtoken', methods=['POST', ])
 def getRefreshToken():
-    logging.debug(f'refresh data1: {request}')
+    # logging.debug(f'refresh data1: {request}')
     logging.debug(f'refresh data: {request.get_json()}')
 
     auth_headers = request.headers.get('Authorization', '').split()
@@ -124,7 +124,7 @@ def getRefreshToken():
         refreshToken = jwt.encode(
             {'user': user, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_REFRESH_TOKEN_EXPIRES']},
             key=current_app.config['SECRET_KEY'])
-        response = jsonify({'accessToken': accessToken, 'refreshToken': refreshToken, 'user': user, 'message': 'login successful'})
+        response = jsonify({'accessToken': accessToken, 'refreshToken': refreshToken, 'user': user, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_REFRESH_TOKEN_EXPIRES'], 'message': 'login successful'})
         return response
     except (jwt.ExpiredSignatureError, Exception) as e:
         logging.debug(f'ExpiredSignatureError:{e}')
