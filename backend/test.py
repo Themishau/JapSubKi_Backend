@@ -47,6 +47,8 @@ def token_required(f):
             data = jwt.decode(token, algorithms="HS256", key=current_app.config['SECRET_KEY'])
             logging.debug(f'test encoded data:{data}')
             user = User.query.filter_by(email=data['user']).first()
+            date_time = datetime.datetime.fromtimestamp(data["exp"])
+            logging.debug(f' accesstoken time: {date_time.strftime("%m/%d/%Y, %H:%M:%S")}')
             if not user:
                 raise RuntimeError('User not found')
             return f(user, *args, **kwargs)

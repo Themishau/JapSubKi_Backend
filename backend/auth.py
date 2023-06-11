@@ -102,29 +102,27 @@ def getRefreshToken():
     # logging.debug(f'refresh data1: {request}')
     logging.debug(f'refresh data: {request.get_json()}')
 
-    auth_headers = request.headers.get('Authorization', '').split()
-    logging.debug(f'data:{auth_headers}')
-
     user_message = {
         'message': 'User not found.',
         'authenticated': False
     }
 
     try:
-        token = auth_headers[1]
+        token = request.get_json()['refreshToken']
         logging.debug(f'token: {token}')
         data = jwt.decode(token, algorithms="HS256", key=current_app.config['SECRET_KEY'])
-        logging.debug(f'decode: {data}')
+        logging.debug(f'decoded data REFRESH: {data}')
+        logging.debug(f'decoded data REFRESH: {data["user"]}')
         user = User.query.filter_by(email=data['user']).first()
+        logging.debug(f'decoded data REFRESH: {type(user)}')
+        date_time = datetime.datetime.fromtimestamp(data["exp"])
+        logging.debug(f'refresh token time: {date_time.strftime("%m/%d/%Y, %H:%M:%S")}')
         if not user:
             raise RuntimeError('User not found')
         accessToken = jwt.encode(
-            {'user': user, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_ACCESS_TOKEN_EXPIRES']},
+            {'user': data['user'], 'exp': datetime.datetime.utcnow() + current_app.config['JWT_ACCESS_TOKEN_EXPIRES']},
             key=current_app.config['SECRET_KEY'])
-        refreshToken = jwt.encode(
-            {'user': user, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_REFRESH_TOKEN_EXPIRES']},
-            key=current_app.config['SECRET_KEY'])
-        response = jsonify({'accessToken': accessToken, 'refreshToken': refreshToken, 'user': user, 'exp': datetime.datetime.utcnow() + current_app.config['JWT_REFRESH_TOKEN_EXPIRES'], 'message': 'login successful'})
+        response = jsonify({'accessToken': accessToken, 'refreshToken': token, 'user': data['user'], 'message': 'refresh successful'})
         return response
     except (jwt.ExpiredSignatureError, Exception) as e:
         logging.debug(f'ExpiredSignatureError:{e}')
