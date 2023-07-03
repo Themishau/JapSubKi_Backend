@@ -11,7 +11,6 @@ import logging
 from functools import wraps
 
 auth = Blueprint('auth', __name__)
-db_sql = SQL_Writer()
 salt = '5aP3v*4!1bN<x4i&3'
 logging.basicConfig(level=logging.DEBUG,
                     format="%(asctime)s %(levelname)s %(message)s",
@@ -162,7 +161,6 @@ def signup_post():
     password = request.form.get('password')
     password += salt
     logging.debug(f'user: {username} pass: {password}')
-    db_sql.testConnection()
     user = User.query.filter_by(
         email=username).first()  # if this returns a user, then the email already exists in database
     logging.debug(user)
