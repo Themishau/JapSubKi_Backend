@@ -2,7 +2,7 @@ import jwt
 import datetime
 from flask import Blueprint, render_template, redirect, url_for, request, jsonify, flash, current_app, make_response
 from werkzeug.security import generate_password_hash, check_password_hash
-from .models import User, SQL_Writer
+from .UserData import User, SQL_Writer
 from flask_cors import CORS
 from . import db
 from wtforms import StringField, PasswordField, BooleanField
