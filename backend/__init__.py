@@ -1,12 +1,14 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_mongoengine import MongoEngine
 from flask_cors import CORS
 import datetime
 from settings import reads
 # init SQLAlchemy so we can use it later in our models
 # secret key is saved in file
 db = SQLAlchemy()
-
+Sessiondb = MongoEngine()
+TodoListDB = MongoEngine()
 
 
 def create_app():
@@ -17,7 +19,19 @@ def create_app():
     app.config['JWT_REFRESH_TOKEN_EXPIRES'] = datetime.timedelta(days=1) # define the life span of the token
     # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite'
     app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://UserWriterReader:UserTest123@127.0.0.1:9556/UserData'
+    app.config['MONGODB_SETTINGS_USERSESSIONS'] = {
+        'db': 'UserSessions',
+        'host': 'localhost',
+        'port': 27017
+    }
+    app.config['MONGODB_SETTINGS_TODOLISTDATA'] = {
+        'db': 'TodoListData',
+        'host': 'localhost',
+        'port': 27018
+    }
     db.init_app(app)
+    Sessiondb.init_app(app)
+    TodoListDB.init_app(app)
 
     # blueprint for auth routes in our app
     from .auth import auth as auth_blueprint
